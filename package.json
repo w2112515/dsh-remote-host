@@ -2,6 +2,17 @@
   "name": "@w2112515/dsh-remote-host",
   "version": "0.1.0",
   "description": "Pair an Android phone to a DeepSeek Harness Host over LAN: Noise-authenticated remote, Settings → Mobile access, and workspace-bound session create.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "android",
+    "remote",
+    "lan",
+    "mobile",
+    "pairing"
+  ],
   "homepage": "https://github.com/w2112515/dsh-remote-host#readme",
   "repository": {
     "type": "git",
@@ -48,6 +59,8 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
+    "llms.txt",
+    "docs/phone/**",
     "LICENSE"
   ],
   "dsh": {

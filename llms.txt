@@ -1,0 +1,27 @@
+# DSH Remote
+
+> Pair an Android phone to a DeepSeek Harness Host on the same LAN.
+
+DSH Remote is two downloads, not a fork of DeepSeek Harness, and not an official DeepSeek product.
+
+1. Host plugin: https://github.com/w2112515/dsh-remote-host
+   npm: @w2112515/dsh-remote-host
+   Install: `dsh plugin --profile web add @w2112515/dsh-remote-host`
+   Then restart `dsh web` and open Settings → Mobile access (not Settings → Plugins).
+2. Android APK: https://github.com/w2112515/dsh-remote-android/releases
+   Debug package id: `dev.dshremote.gate0c`
+   A marketplace pack cannot install the APK.
+
+Facts:
+
+- Pairing: Noise XXpsk3 / IK, Host QR, eight-digit compare code on the PC.
+- LAN discovery is off until Mobile access enables it.
+- Phone talks to the Host Remote port on the same `dsh web` process, not the Web UI port.
+- Workspace paths never leave the Host. The phone sees labels, ids, and folder names.
+- Create session: bind an existing Host workspace, or let the Host mkdir a child under an allowed parent.
+- Reviewed Host security platform: Windows x64. Linux/macOS keep the settings page and skip the carrier.
+- Same Wi-Fi / LAN only. No public relay in this release.
+- Community marketplace catalogs may not list this plugin yet. npm install works now.
+
+Related: https://github.com/w2112515/dsh-remote-pack
+DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness

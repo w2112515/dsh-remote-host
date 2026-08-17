@@ -1,36 +1,73 @@
 # DSH Remote Host
 
-Installable DeepSeek Harness plugin that turns a Windows PC running `dsh web` into a phone-controlled Host.
+**Pair an Android phone to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) over your LAN.**
 
-This is **not** a fork of DeepSeek Harness. Add it to the stock `web` profile. The Android app is a separate download — a marketplace pack cannot install an APK.
+DSH Remote is an installable plugin for a PC running `dsh web`, plus a separate Android APK. From the phone you open Host sessions, send turns, approve tool calls, and review artifacts — without exposing workspace paths.
+
+It is **not** a fork of DeepSeek Harness and **not** an official DeepSeek product. Add the plugin to the stock `web` profile. A marketplace pack cannot install an APK.
 
 English | [中文](README.zh-CN.md)
 
+<p>
+  <img src="docs/phone/sessions.png" width="220" alt="DSH Remote Android session list, grouped by Host project">
+  <img src="docs/phone/chat.png" width="220" alt="DSH Remote Android chat with usage, model, and agent preset">
+  <img src="docs/phone/create.png" width="220" alt="Create a session on an existing Host workspace or a new folder">
+</p>
+<p>
+  <img src="docs/phone/hosts.png" width="220" alt="Paired Host status on the Android client">
+  <img src="docs/phone/artifacts.png" width="220" alt="Host artifacts list on the Android client">
+</p>
+
+<p><sub>Real vivo phone, paired over LAN. Host name and LAN address redacted.</sub></p>
+
 ## What you get
 
-1. **This plugin** (npm, GitHub, or the [DSH Remote pack](https://github.com/w2112515/dsh-remote-pack)) — Host carrier, pairing, LAN discovery, Settings → Mobile access.
-2. **One Android APK** from [dsh-remote-android releases](https://github.com/w2112515/dsh-remote-android/releases) — the phone client.
+1. **This plugin** — `@w2112515/dsh-remote-host` on [npm](https://www.npmjs.com/package/@w2112515/dsh-remote-host) or GitHub. Host carrier, Noise pairing, LAN discovery, **Settings → Mobile access**.
+2. **One Android APK** from [dsh-remote-android releases](https://github.com/w2112515/dsh-remote-android/releases). That repository is the phone client, not a DSH plugin.
 
-Pairing uses Noise (`XXpsk3` / `IK`). LAN advertisement stays off until you enable it in Settings → Mobile access. Paths never leave the Host; the phone only sees workspace labels and folder names.
+Optional: the [DSH Remote pack](https://github.com/w2112515/dsh-remote-pack) lists only this Host plugin. Install the APK yourself either way.
 
-Windows x64 is the reviewed Host security platform. Linux and macOS keep the Settings page and skip the carrier.
+## What the phone can do
+
+| On the phone | What actually happens |
+| --- | --- |
+| Session list | Host directory, grouped by project / workspace **label**. Blank Host sessions stay hidden until this device creates one or the first turn lands. |
+| Chat / trajectory / export | Live projection of the open session: messages, tools, usage when the Host serves it, model and agent preset. |
+| New session | Bind to an existing Host workspace, or ask the Host to create a folder under an allowed parent. The phone never `mkdir`s and never sees a full path. |
+| Approvals | Pending tool approvals for the paired Host. |
+| Artifacts | Host-projected file outputs, with a local “reviewed” marker on this device. |
+| Hosts | Pair another PC, see online / idle, unpair. |
+
+Pairing is Noise (`XXpsk3` / `IK`): scan the Host QR, confirm the eight-digit code on the PC. LAN advertisement stays **off** until you turn it on in Settings → Mobile access.
+
+## Requirements
+
+- DeepSeek Harness `dsh web` on **Windows x64** (the reviewed Host security platform).
+- Same Wi-Fi / LAN as the phone. There is no public relay or tunnel in this release.
+- Android phone that can sideload a **debug** APK (`dev.dshremote.gate0c`).
+
+Linux and macOS still show the Mobile access settings page and skip the carrier. iOS is not available.
 
 ## Install the Host plugin
 
-From npm (prebuilt, no install scripts):
+Prebuilt npm package, no install scripts:
 
 ```powershell
 dsh plugin --profile web add @w2112515/dsh-remote-host
 dsh --profile web --dump-config
 ```
 
-Restart `dsh web`. Then open **Settings → Mobile access**, turn on nearby discovery, and pair the phone.
+Confirm the dump includes `host-remote-control`, `host-remote-command`, `host-remote`, and `ui-settings-remote`. Restart `dsh web`.
 
-Marketplace one-click and the solution pack install the same package from the pinned GitHub commit (`lib/` is committed).
+Then open **Settings → Mobile access** (not Settings → Plugins). Turn on nearby discovery.
+
+Install via npm today. Community marketplace catalogs may list the pack after their scanner admits `w2112515/dsh-remote-host`; do not wait on that to use the plugin.
 
 ## Then install the APK
 
-Download the latest APK from [dsh-remote-android releases](https://github.com/w2112515/dsh-remote-android/releases). Install it on the phone, join the same Wi-Fi, scan the Host QR, confirm the eight-digit code on the PC.
+1. Download the latest APK from [dsh-remote-android releases](https://github.com/w2112515/dsh-remote-android/releases).
+2. Sideload it on the phone.
+3. Join the same Wi-Fi, scan the Host QR, confirm the eight-digit code on the PC.
 
 ## Remove
 
@@ -39,6 +76,37 @@ dsh plugin --profile web remove @w2112515/dsh-remote-host
 ```
 
 The Host identity file `remote-host-security.bin` under DSH home is not deleted automatically.
+
+## FAQ
+
+**What is DSH Remote?**
+A LAN remote for DeepSeek Harness: this Host plugin plus the Android APK. The phone talks to the same `dsh web` process on the Remote port, not to the Web UI port.
+
+**Is it official?**
+No. It is a third-party plugin for the stock `web` profile.
+
+**Will the phone see my disk paths?**
+No. The wire carries workspace ids and labels, session titles, and folder names you type. Absolute paths stay on the Host.
+
+**Can I use it off my home Wi-Fi?**
+Not in this release. Same LAN only. A relay / tunnel is future work.
+
+**Why two downloads?**
+A DSH marketplace pack can only install admitted plugins. It cannot install an Android app.
+
+**I created a session on the phone and it vanished from the list.**
+Current Android builds keep a local row for a session this device just created. Update the APK if you still have to force-quit to see it.
+
+## Related
+
+| Piece | Repository |
+| --- | --- |
+| Host plugin (this repo) | https://github.com/w2112515/dsh-remote-host |
+| Android APK | https://github.com/w2112515/dsh-remote-android |
+| Marketplace pack listing | https://github.com/w2112515/dsh-remote-pack |
+| DeepSeek Harness | https://github.com/deepseek-ai/deepseek-harness |
+
+Machine-readable summary: [llms.txt](llms.txt).
 
 ## License
 
