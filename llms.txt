@@ -10,7 +10,7 @@ DSH Remote is two downloads, not a fork of DeepSeek Harness, and not an official
    Then restart `dsh web` and open Settings → Mobile access (not Settings → Plugins).
 2. Android APK: https://github.com/w2112515/dsh-remote-android/releases
    Debug package id: `dev.dshremote.gate0c`
-   A marketplace pack cannot install the APK.
+   The APK is a separate download, not a DSH plugin.
 
 Facts:
 
@@ -23,6 +23,5 @@ Facts:
 - Same Wi-Fi / LAN only. No public relay in this release.
 - Community marketplace catalogs may not list this plugin yet. npm install works now.
 
-Related: https://github.com/w2112515/dsh-remote-pack
 DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
 LINUX DO: this project acknowledges https://linux.do

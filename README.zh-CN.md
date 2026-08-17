@@ -4,7 +4,7 @@
 
 DSH Remote 是给正在运行 `dsh web` 的电脑装的插件，外加一个单独的 Android APK。手机上可以打开 Host 会话、发回合、审批工具调用、查看产出——工作区完整路径不会离开电脑。
 
-这不是 DeepSeek Harness 的 fork，也不是 DeepSeek 官方产品。把它加进官方 `web` profile 即可。市场整合包装不了 APK。
+这不是 DeepSeek Harness 的 fork，也不是 DeepSeek 官方产品。把它加进官方 `web` profile 即可。Android 应用要另外下载。
 
 [English](README.md) | 中文
 
@@ -28,8 +28,6 @@ DSH Remote 是给正在运行 `dsh web` 的电脑装的插件，外加一个单�
 
 1. **这个插件** — npm 上的 [`@w2112515/dsh-remote-host`](https://www.npmjs.com/package/@w2112515/dsh-remote-host)，或本仓库。Host 载体、Noise 配对、局域网发现、**设置 → 手机访问**。
 2. **一个 Android APK**，来自 [dsh-remote-android releases](https://github.com/w2112515/dsh-remote-android/releases)。那个仓库是手机客户端，不是 DSH 插件。
-
-可选：[DSH Remote 整合包](https://github.com/w2112515/dsh-remote-pack) 只列出这个 Host 插件。APK 都要自己下。
 
 ## 手机上能做什么
 
@@ -65,7 +63,7 @@ dsh --profile web --dump-config
 
 打开 **设置 → 手机访问**（不是「设置 → 插件」），打开附近发现。
 
-现在请用 npm 安装。社区市场目录要等扫描器收录 `w2112515/dsh-remote-host` 之后才会出现；不必等市场也能用。
+现在请用 npm 安装。社区市场目录要等扫描器收录 `w2112515/dsh-remote-host` 之后才会出现这个插件；不必等市场也能用。
 
 ## 然后装 APK
 
@@ -96,7 +94,7 @@ DeepSeek Harness 的局域网遥控器：这个 Host 插件 + Android APK。手�
 这一版不能。只支持同一局域网。中继 / 隧道是后续。
 
 **为什么要下两次？**
-DSH 市场整合包只能装已收录的插件，装不了 Android 应用。
+手机端是 Android 应用，不是 DSH 插件。先装这个 Host 插件，再侧载 APK。
 
 **手机上新建的会话列表里看不到？**
 当前 Android 会为本机刚创建的会话留一行。如果还要杀进程才能看见，请更新 APK。
@@ -107,7 +105,6 @@ DSH 市场整合包只能装已收录的插件，装不了 Android 应用。
 | --- | --- |
 | Host 插件（本仓库） | https://github.com/w2112515/dsh-remote-host |
 | Android APK | https://github.com/w2112515/dsh-remote-android |
-| 市场整合包 | https://github.com/w2112515/dsh-remote-pack |
 | DeepSeek Harness | https://github.com/deepseek-ai/deepseek-harness |
 | LINUX DO | https://linux.do |
 
