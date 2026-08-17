@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "platform": "win32-x64",
+  "rustTarget": "x86_64-pc-windows-gnullvm",
+  "nodeApi": 8,
+  "cargoLockSha256": "a0b207fc5225104c3f50cbd1d41480cd3649bcbf0bf1694fba2b00192b18aa83",
+  "artifacts": [
+    {
+      "path": "dsh_remote_security_core.node",
+      "sha256": "ca878d7c0a03f2c17b1e9c8905b3670c31272331aa58752907b483338174f1c6"
+    },
+    {
+      "path": "libunwind.dll",
+      "sha256": "13bf4e99b0193634ebdeb0bbdeff9753b39f1d04799183f664111014aabf4c2c"
+    }
+  ]
+}

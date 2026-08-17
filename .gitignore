@@ -1,0 +1,5 @@
+node_modules/
+.cache/
+coverage/
+*.tgz
+.verify-home/

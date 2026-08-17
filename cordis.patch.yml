@@ -1,0 +1,17 @@
+# DSH Remote Host: insert after the stock web layer. LAN stays off until
+# Settings → Mobile access turns it on. A missing Windows security addon
+# must not take down `dsh web`.
+- insert:
+    - id: host-remote-control
+      name: '@w2112515/dsh-remote-host/control'
+
+    - id: host-remote-command
+      name: '@w2112515/dsh-remote-host/command'
+
+    - id: host-remote
+      name: '@w2112515/dsh-remote-host'
+      config:
+        securityStorePath: !!js dshHomePath('remote-host-security.bin')
+
+    - id: ui-settings-remote
+      name: '@w2112515/dsh-remote-host/settings'
