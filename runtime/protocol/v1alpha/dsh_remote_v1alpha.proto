@@ -1,0 +1,1191 @@
+syntax = "proto3";
+
+package dsh.remote.v1alpha;
+
+option java_multiple_files = true;
+option java_package = "dev.dshremote.protocol.v1alpha";
+option java_outer_classname = "DshRemoteV1Alpha";
+option optimize_for = LITE_RUNTIME;
+
+// Gate 0E authenticated experiment. Field names and numbers are not a public contract.
+service RemoteTransport {
+  // Retained only to return UNAUTHENTICATED to pre-Gate-0E clients.
+  rpc Connect(stream ClientFrame) returns (stream ServerFrame);
+  // Noise IK authenticates a paired device before encrypted ClientFrame bytes
+  // can reach the read-only projection state machine.
+  rpc SecureConnect(stream SecureClientFrame) returns (stream SecureServerFrame);
+  // First pairing uses one Host-minted invitation and Noise XXpsk3. The Host
+  // must confirm the authenticated device and transcript code before the phone
+  // may persist the Host pin or open SecureConnect.
+  rpc Pair(stream PairingClientFrame) returns (stream PairingServerFrame);
+}
+
+// Compact invitation encoded for QR/manual transfer. Network location is only
+// discovery input; host_public_key remains the authenticated identity binding.
+message PairingInvitation {
+  uint32 protocol_version = 1;
+  bytes invitation_id = 2;
+  bytes invitation_psk = 3;
+  bytes host_public_key = 4;
+  uint64 expires_at_ms = 5;
+  uint64 capabilities = 6;
+  string endpoint_host = 7;
+  uint32 endpoint_port = 8;
+  // Iroh EndpointId hex (routing name only). Empty on Hosts without WAN.
+  string iroh_endpoint_id = 9;
+  // Self-hosted iroh-relay URL. Empty uses the library default public relays.
+  string iroh_relay_url = 10;
+}
+
+message PairingClientFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    PairingHello hello = 10;
+    bytes handshake_message = 11;
+  }
+}
+
+message PairingHello {
+  uint32 protocol_version = 1;
+  bytes invitation_id = 2;
+  bytes host_public_key = 3;
+  string device_name = 4;
+}
+
+message PairingServerFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    bytes handshake_message = 10;
+    // Post-handshake PairingServerFrame bytes encrypted by Noise transport.
+    bytes ciphertext = 11;
+    PairingStatus status = 12;
+    SecureProtocolError error = 13;
+  }
+}
+
+message PairingStatus {
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    STATE_AWAITING_HOST_CONFIRMATION = 1;
+    STATE_CONFIRMED = 2;
+    STATE_REJECTED = 3;
+  }
+
+  State state = 1;
+  // Displayed independently on both endpoints; never an authorization token.
+  string verification_code = 2;
+}
+
+message SecureClientFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    SecureConnectionHello hello = 10;
+    bytes handshake_message = 11;
+    bytes ciphertext = 12;
+  }
+}
+
+message SecureServerFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    bytes handshake_message = 10;
+    bytes ciphertext = 11;
+    SecureProtocolError error = 12;
+  }
+}
+
+message SecureConnectionHello {
+  uint32 protocol_version = 1;
+  string connection_id = 2;
+  bytes host_public_key = 3;
+}
+
+enum SecureErrorCode {
+  SECURE_ERROR_CODE_UNSPECIFIED = 0;
+  SECURE_ERROR_CODE_INVALID_REQUEST = 1;
+  SECURE_ERROR_CODE_INCOMPATIBLE_VERSION = 2;
+  SECURE_ERROR_CODE_HOST_IDENTITY_MISMATCH = 3;
+  SECURE_ERROR_CODE_UNAUTHORIZED_DEVICE = 4;
+  SECURE_ERROR_CODE_CRYPTOGRAPHIC_FAILURE = 5;
+}
+
+message SecureProtocolError {
+  SecureErrorCode code = 1;
+  string detail = 2;
+}
+
+message ClientFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    ClientHello hello = 10;
+    Subscribe subscribe = 11;
+    Ack ack = 12;
+    Command command = 13;
+    ControlRequest control_request = 14;
+    Heartbeat heartbeat = 15;
+    BlobTransferBegin blob_begin = 16;
+    BlobTransferChunk blob_chunk = 17;
+    BlobTransferControl blob_control = 18;
+    BlobFetchRequest blob_fetch = 19;
+  }
+}
+
+message ServerFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    ServerHello hello = 10;
+    Snapshot snapshot = 11;
+    ProjectedEvent event = 12;
+    CommandResult command_result = 13;
+    ProtocolError error = 14;
+    ResumeAccepted resume_accepted = 15;
+    ControlResult control_result = 16;
+    StopResult stop_result = 17;
+    HeartbeatAck heartbeat_ack = 18;
+    BlobTransferResult blob_transfer_result = 19;
+    BlobFetchResult blob_fetch_result = 20;
+  }
+}
+
+message ClientHello {
+  uint32 protocol_version = 1;
+  string client_name = 2;
+}
+
+message Heartbeat {
+  string nonce = 1;
+}
+
+message HeartbeatAck {
+  string nonce = 1;
+}
+
+message ServerHello {
+  uint32 protocol_version = 1;
+  string connection_id = 2;
+  string host_instance_id = 3;
+  repeated SessionSummary sessions = 4;
+  // Exact Host-granted mask for this authenticated identity. Older clients
+  // observe zero and therefore keep every effectful affordance disabled.
+  uint64 granted_capabilities = 5;
+  // Connect-time agent-preset roster snapshot (S-mode-select). Empty when the
+  // deployment composes no presets; the mode affordance stays hidden then.
+  repeated AgentPresetEntry agent_presets = 6;
+  // Connect-time model catalog snapshot (S-session-admin), one group per
+  // provider that advertised at least one model. Empty when no provider is
+  // registered; the model affordance stays hidden then. Catalog membership is
+  // advisory: a stale row fails selection honestly with
+  // ERROR_CODE_MODEL_UNAVAILABLE rather than pretending to exist.
+  repeated ModelProviderGroup model_catalog = 7;
+  // Providers whose catalog failed to load; the sound groups remain usable.
+  repeated ModelCatalogFailure model_catalog_failures = 8;
+  // Connect-time artifact roster snapshot (S-artifacts): the Host-owned
+  // registry of files the agent created or changed, newest first, bounded by
+  // the deployment's roster cap. Empty when no session produced files within
+  // the scanned history window; absence of an entry is never a claim that no
+  // file was produced — only that none was registered within the bound.
+  repeated ArtifactSummary artifacts = 9;
+  // Deployment image-intake bounds (S-blob), so clients can pre-gate honestly
+  // instead of discovering limits from transfer failures. Absent when the
+  // deployment accepts no attachments; the composer affordance stays hidden.
+  AttachmentLimits attachment_limits = 10;
+  // Operator-facing Host name: the configured LAN display name when set, else
+  // the machine hostname. Stable across child restarts, unlike
+  // host_instance_id which is minted per boot. Empty from older Hosts;
+  // clients fall back to their existing labels then.
+  string host_display_name = 11;
+  // Connect-time workspace roster (create-time bind). Ids are Host
+  // WorkspaceId values; labels are the projects-config match, else the
+  // workspace title, else the basename. Paths never cross. Empty from older
+  // Hosts; clients then create against the Host default cwd.
+  repeated WorkspaceSummary workspaces = 12;
+  // Iroh EndpointId hex for off-LAN reconnect. Empty means WAN is unavailable.
+  string iroh_endpoint_id = 13;
+  // Self-hosted iroh-relay URL echoed so a paired phone can rebind the same map.
+  string iroh_relay_url = 14;
+}
+
+// One Host-registered workspace the phone may bind a new session to, or use
+// as the allowed parent of a Host-owned child folder. The absolute path
+// stays Host-side.
+message WorkspaceSummary {
+  string workspace_id = 1;
+  string label = 2;
+}
+
+// See ServerHello.attachment_limits. Bounds are re-enforced Host-side; the
+// reported media types are sniffed again at intake regardless.
+message AttachmentLimits {
+  uint64 max_image_bytes = 1;
+  uint32 max_images_per_message = 2;
+  repeated string media_types = 3;
+}
+
+// One Host-registered artifact (S-artifacts): a file a successful mutation
+// tool call created or changed, recognized by render intent (a diff card, or
+// a generic card whose kind is edit) exactly like the Host-local deliverables
+// surface — never by tool name and never from closing prose. Entries are
+// immutable journal facts: a later edit registers a new entry rather than
+// updating this one.
+message ArtifactSummary {
+  // Stable reference: session id, source result sequence and the path index
+  // within that result, joined — opaque to clients, unique per Host.
+  string artifact_id = 1;
+  string session_id = 2;
+  // Privacy-minimized path: relative to the session workspace when the file
+  // sits under it; otherwise only the final path component crosses and
+  // outside_workspace is set. Never an absolute path.
+  string path = 3;
+  bool outside_workspace = 4;
+  // True when the mutation created the file (no prior content existed).
+  bool is_new_file = 5;
+  // Bounded unified diff of the applied hunks when the result view carried
+  // them; absent when the mutation registered no hunk content (a fresh-file
+  // write, or an edit card without hunks) — absence is rendered as
+  // "content not projected", never as an empty change.
+  optional string content = 6;
+  // True when content was cut to the deployment's per-artifact bound.
+  bool truncated = 7;
+  // Journal time of the registering tool result, epoch milliseconds.
+  uint64 registered_at_ms = 8;
+}
+
+message SessionSummary {
+  string session_id = 1;
+  string title = 2;
+  bool running = 3;
+  uint64 updated_at_ms = 4;
+  // Privacy-minimized final path component. The Host never sends the full cwd.
+  string workspace_label = 5;
+  uint32 pending_approval_count = 6;
+  // Live Host-owned user-question waits. Question content remains on the Host.
+  uint32 pending_input_count = 7;
+  // Absent when the Host composition provides no usage projection units.
+  // Absence is not zero: clients must render it as "not provided".
+  SessionUsage usage = 8;
+  // Lineage facts (S-vocab-ext). Present only for sub-agent child sessions;
+  // ordinary sessions leave both absent. Never a full path or prompt.
+  optional string parent_session_id = 9;
+  optional string origin = 10;
+  // Sub-agent identity/timing when this session is a descriptor-backed child.
+  SubagentView subagent = 11;
+  // Agent preset id this session's agent was composed from (S-mode-select).
+  // Absent when the deployment composes no presets; never a display name —
+  // clients resolve names against the hello-time roster.
+  optional string agent_preset = 12;
+  // Latest logged request-header selection (S-session-admin). Absent while the
+  // session never recorded a header (blank, or cold metadata without a log
+  // read) — absence is never rendered as the deployment default.
+  ModelSelection model = 13;
+  // Operator-configured project registry label (S-project). Absent when the
+  // session cwd matches no configured registry root — never a path or a
+  // derived guess; clients group unlabeled sessions by the workspace basename
+  // they already hold.
+  optional string project_label = 14;
+}
+
+message Subscribe {
+  string session_id = 1;
+  ResumeCursor resume = 2;
+  bool force_fresh_snapshot = 3;
+}
+
+message ResumeCursor {
+  string stream_id = 1;
+  uint32 projection_version = 2;
+  uint64 highest_contiguous_sequence = 3;
+}
+
+// Confirms the retained generation and fixes the replay suffix before any
+// ProjectedEvent from that suffix is delivered.
+message ResumeAccepted {
+  string stream_id = 1;
+  uint32 projection_version = 2;
+  uint64 resumed_after_sequence = 3;
+  uint64 latest_sequence = 4;
+}
+
+message Ack {
+  string stream_id = 1;
+  uint32 projection_version = 2;
+  uint64 highest_contiguous_sequence = 3;
+}
+
+message Snapshot {
+  string stream_id = 1;
+  uint32 projection_version = 2;
+  uint64 snapshot_end_sequence = 3;
+  SessionProjection session = 4;
+}
+
+message SessionProjection {
+  string session_id = 1;
+  string title = 2;
+  bool running = 3;
+  repeated TimelineNode timeline = 4;
+  bool history_truncated = 5;
+  // Exact currently open DSH turn; zero means no stoppable active turn.
+  uint64 activity_revision = 6;
+  repeated ApprovalInteraction approvals = 7;
+  uint32 pending_input_count = 8;
+  // Same absence semantics as SessionSummary.usage.
+  SessionUsage usage = 9;
+  // Same absence semantics as SessionSummary.subagent.
+  SubagentView subagent = 10;
+  // Same absence semantics as SessionSummary.agent_preset.
+  optional string agent_preset = 11;
+  // Same absence semantics as SessionSummary.model.
+  ModelSelection model = 12;
+  // Active auto-grant rules from the session's durable policy fold (S-policy).
+  // An empty list IS the fact here: rules are fully enumerable per session.
+  repeated ApprovalRule approval_rules = 13;
+  // The session's token budget; absent when none is set — never a zero ceiling.
+  SessionBudget budget = 14;
+}
+
+// One agent-preset roster row (S-mode-select), as carried by ServerHello.
+// The roster is a connect-time snapshot: Host-local authoring is loopback-only,
+// so a row removed since hello fails selection honestly with
+// ERROR_CODE_AGENT_PRESET_NOT_FOUND rather than pretending to exist.
+message AgentPresetEntry {
+  string id = 1;
+  enum Trust {
+    TRUST_UNSPECIFIED = 0;
+    TRUST_SYSTEM = 1;
+    // Locally authored: exactly as privileged as the plugins it names.
+    TRUST_USER = 2;
+  }
+  Trust trust = 2;
+  bool is_default = 3;
+  optional string name = 4;
+  optional string description = 5;
+  // Why this preset cannot compose a session; present rows are listed but
+  // must not be offered for selection.
+  optional string broken = 6;
+}
+
+// One model-catalog provider group (S-session-admin), as carried by
+// ServerHello. The catalog is a connect-time snapshot: providers and models
+// are Host-local configuration, so a row removed since hello fails selection
+// honestly with ERROR_CODE_MODEL_UNAVAILABLE rather than pretending to exist.
+message ModelProviderGroup {
+  string id = 1;
+  optional string name = 2;
+  repeated ModelEntry models = 3;
+}
+
+message ModelEntry {
+  string id = 1;
+  optional string name = 2;
+  // Adapter-advertised reasoning effort ids; empty when the model has no
+  // reasoning block, in which case any requested effort is rejected.
+  repeated string reasoning_efforts = 3;
+  optional string default_reasoning_effort = 4;
+  // Adapter-advertised input modalities (e.g. "text", "image"); empty means
+  // text-only. The attachment affordance gates on this per selected model.
+  repeated string input_modalities = 5;
+}
+
+// A provider whose catalog could not be built; the sound groups stay usable.
+message ModelCatalogFailure {
+  string provider_id = 1;
+  optional string detail = 2;
+}
+
+// Exact provider/model/effort triple (S-session-admin). Absent
+// reasoning_effort clears any inherited effort at the owner.
+message ModelSelection {
+  string provider = 1;
+  string model = 2;
+  optional string reasoning_effort = 3;
+}
+
+// Folded from the `subagent` (identity) and `subagentTiming` (timing) projection
+// units (S-vocab-ext). A live SubagentChanged carries only the half that
+// changed; clients merge per half and never treat an absent half as a reset.
+message SubagentView {
+  // Identity half. Both absent ⟺ the unit's null sentinel (no valid descriptor).
+  optional string mode = 1;   // "one-shot" | "continuable"
+  optional string label = 2;  // continuable always carries one; one-shot may omit
+  // Timing half (milliseconds; active_* bound the currently open turn).
+  optional uint64 settled_ms = 3;
+  optional uint64 active_since_ms = 4;
+  optional uint64 active_through_ms = 5;
+}
+
+// Provider-reported whole-log token buckets (token-meter `tokenUsage` unit).
+// All-zero is a true fact: the session ran no usage-reporting request yet.
+message TokenUsage {
+  uint64 uncached_input_tokens = 1;
+  uint64 output_tokens = 2;
+  uint64 cache_read_tokens = 3;
+  uint64 cache_write_tokens = 4;
+}
+
+// Latest context-occupancy sample (token-meter `contextPressure` unit). Each
+// field is independently optional in the source unit; presence is preserved.
+message ContextPressure {
+  optional uint64 pressure_tokens = 1;
+  optional uint64 projected_tokens = 2;
+  optional uint64 context_window = 3;
+}
+
+// Whole-log turn/step counts and wall times (session-stats `sessionStats`
+// unit). Counts are exact; wall times are sums over closed boundaries.
+message SessionStats {
+  uint64 turns = 1;
+  uint64 steps = 2;
+  uint64 llm_ms = 3;
+  uint64 tool_ms = 4;
+}
+
+// Numbers-only minimized usage views. Each sub-message is present only when
+// the Host composition loaded the owning projection unit.
+message SessionUsage {
+  TokenUsage token_usage = 1;
+  ContextPressure context_pressure = 2;
+  SessionStats stats = 3;
+}
+
+// Live single-unit update. Exactly the units present in this message changed;
+// clients merge them into the retained SessionUsage, never treating an absent
+// unit as reset.
+message UsageChanged {
+  TokenUsage token_usage = 1;
+  ContextPressure context_pressure = 2;
+  SessionStats stats = 3;
+}
+
+enum ApprovalRisk {
+  APPROVAL_RISK_UNSPECIFIED = 0;
+  APPROVAL_RISK_ROUTINE = 1;
+  APPROVAL_RISK_SENSITIVE = 2;
+  APPROVAL_RISK_DESTRUCTIVE = 3;
+  APPROVAL_RISK_UNCLASSIFIED = 4;
+}
+
+enum ApprovalDecision {
+  APPROVAL_DECISION_UNSPECIFIED = 0;
+  APPROVAL_DECISION_ALLOW_ONCE = 1;
+  APPROVAL_DECISION_DENY = 2;
+  // Allow this ask and mint a session-scoped rule auto-granting the honestly
+  // derived class (S-policy). Only offered when a class is derivable; the
+  // settlement itself remains allowed-once.
+  APPROVAL_DECISION_ALLOW_SAME_KIND = 3;
+}
+
+message ApprovalPresentation {
+  string summary = 1;
+  ApprovalRisk risk = 2;
+  repeated string resources = 3;
+  string consequence = 4;
+  string source = 5;
+}
+
+message ApprovalPresentationUnavailable {
+  string reason = 1;
+}
+
+message ApprovalInteraction {
+  string approval_id = 1;
+  string revision = 2;
+  string session_id = 3;
+  string tool_name = 4;
+  string call_id = 5;
+  string reason = 6;
+  string workspace_label = 7;
+  repeated ApprovalDecision allowed_decisions = 8;
+
+  oneof evidence {
+    ApprovalPresentation presentation = 10;
+    ApprovalPresentationUnavailable presentation_unavailable = 11;
+  }
+}
+
+message ApprovalResolution {
+  ApprovalDecision decision = 1;
+  string terminal = 2;
+}
+
+message ApprovalChanged {
+  string approval_id = 1;
+  string revision = 2;
+
+  oneof state {
+    ApprovalInteraction pending = 10;
+    ApprovalResolution resolved = 11;
+  }
+}
+
+message InputAttentionChanged {
+  uint32 pending_count = 1;
+}
+
+message TimelineNode {
+  string event_id = 1;
+  uint64 source_sequence = 2;
+
+  oneof content {
+    UserMessage user_message = 10;
+    AssistantMessage assistant_message = 11;
+    ToolPresentation tool_presentation = 12;
+  }
+}
+
+message UserMessage {
+  string text = 1;
+  // Bounded provenance (S-vocab-ext). Absent ⟺ the Host did not minimize a
+  // source for this message; clients must not guess one.
+  MessageSource source = 2;
+  // Images the message carries (S-blob); references only — bytes move through
+  // the blob channel under the session-log-reference ACL.
+  repeated ProjectedImageAttachment attachments = 3;
+}
+
+// Bounded provenance for user-role messages. kind "user" = human-originated
+// (rpc/prompt-admission); kind "plugin" = injected model-facing context.
+// plugin/form travel only for plugin sources. No actor identity crosses.
+message MessageSource {
+  string kind = 1;
+  optional string plugin = 2;
+  optional string form = 3;
+}
+
+// One image attached to a user message (S-blob): the reference crosses, the
+// bytes are fetched through the blob channel. Absent optional fields stay
+// absent — an unknown dimension is not zero.
+message ProjectedImageAttachment {
+  // Content-addressed attachment id (`sha256:<hex>`).
+  string attachment_id = 1;
+  string media_type = 2;
+  uint64 bytes = 3;
+  optional uint32 width = 4;
+  optional uint32 height = 5;
+  optional string name = 6;
+}
+
+message AssistantMessage {
+  string text = 1;
+  bool final = 2;
+  // Stable identity shared by snapshot and live events so clients can replace
+  // an active streamed response in place instead of appending one row per chunk.
+  string message_id = 3;
+}
+
+message ToolPresentation {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_GENERIC = 1;
+    KIND_TERMINAL = 2;
+    KIND_DIFF = 3;
+    KIND_UNSUPPORTED = 4;
+  }
+
+  Kind kind = 1;
+  string call_id = 2;
+  string tool_name = 3;
+  string summary = 4;
+  string bounded_content = 5;
+  bool truncated = 6;
+}
+
+message ProjectedEvent {
+  string stream_id = 1;
+  uint32 projection_version = 2;
+  uint64 sequence = 3;
+  string event_id = 4;
+  string session_id = 5;
+  uint64 source_sequence = 6;
+
+  oneof payload {
+    AssistantDelta assistant_delta = 10;
+    AssistantCompleted assistant_completed = 11;
+    SessionStatusChanged session_status_changed = 12;
+    UserMessageAdded user_message_added = 13;
+    ToolPresentationChanged tool_presentation_changed = 14;
+    SessionTitleChanged session_title_changed = 15;
+    ApprovalChanged approval_changed = 16;
+    InputAttentionChanged input_attention_changed = 17;
+    UsageChanged usage_changed = 18;
+    SubagentChanged subagent_changed = 19;
+    AgentPresetChanged agent_preset_changed = 20;
+    ModelChanged model_changed = 21;
+    // Live artifact registration (S-artifacts): a successful mutation result
+    // landed in this session's journal. The summary is identical in shape to
+    // the hello roster rows; clients merge by artifact_id.
+    ArtifactRegistered artifact_registered = 22;
+    // Live policy fold update (S-policy): a grant, revoke, or budget set
+    // crossed the durable log; carries the complete new fold.
+    PolicyChanged policy_changed = 23;
+  }
+}
+
+message ArtifactRegistered {
+  ArtifactSummary artifact = 1;
+}
+
+// One active session-scoped auto-grant rule (S-policy, ADR-006), projected
+// from the session's durable approval/rule fold. class_kind is "escalate"
+// (class_mode names the target mode) or "tool" (tool-level class — the
+// approval seam carries no arguments); granted_by is "user" or "operator".
+message ApprovalRule {
+  string rule_id = 1;
+  string class_kind = 2;
+  string tool_name = 3;
+  optional string class_mode = 4;
+  string granted_by = 5;
+  uint64 granted_at_ms = 6;
+}
+
+// The session's token ceiling and the Host-asserted gate state against the
+// cumulative usage projection. Absence of the budget is no budget — never a
+// zero ceiling; exhausted is the owner's admission decision, not a number the
+// client re-derives.
+message SessionBudget {
+  uint64 max_total_tokens = 1;
+  bool exhausted = 2;
+}
+
+// The full policy fold after one change crossed the durable log (S-policy).
+// The fold is small and session-scoped, so every change pushes the complete
+// new state; an absent budget means none is set.
+message PolicyChanged {
+  repeated ApprovalRule rules = 1;
+  optional SessionBudget budget = 2;
+}
+
+message AssistantDelta {
+  string message_id = 1;
+  string text_delta = 2;
+}
+
+message AssistantCompleted {
+  string message_id = 1;
+  string text = 2;
+}
+
+message SessionStatusChanged {
+  bool running = 1;
+  uint64 activity_revision = 2;
+  // Per-turn terminal fact from the durable turn/end record (S-vocab-ext).
+  // Absent when this transition is not a turn end. There is deliberately no
+  // session-level done/failed: DSH has no such concept.
+  enum TurnEndReason {
+    TURN_END_REASON_UNSPECIFIED = 0;
+    TURN_END_REASON_COMPLETED = 1;
+    TURN_END_REASON_ABORTED = 2;
+    TURN_END_REASON_BLOCKED = 3;
+    TURN_END_REASON_ERROR = 4;
+    TURN_END_REASON_MAX_TOKENS = 5;
+    TURN_END_REASON_INTERRUPTED = 6;
+  }
+  optional TurnEndReason turn_end_reason = 3;
+}
+
+message UserMessageAdded {
+  string message_id = 1;
+  string text = 2;
+  MessageSource source = 3;
+  // Same reference-only semantics as UserMessage.attachments.
+  repeated ProjectedImageAttachment attachments = 4;
+}
+
+message SubagentChanged {
+  // Only the half that changed is present; merge per half.
+  SubagentView subagent = 1;
+}
+
+// Live agent-preset selection fact (S-mode-select), projected from the durable
+// agent-preset/selected session event. Only meaningful while the session is
+// blank; after the first turn the preset is fixed for the session's life.
+message AgentPresetChanged {
+  string agent_preset = 1;
+}
+
+// Live model-selection fact (S-session-admin), projected from the durable
+// request/header session event with reason "change". The running step keeps
+// its assembled selection; the new triple takes effect at the next assembled
+// request. Initial/resume headers are not projected — the snapshot's session
+// model field already states them.
+message ModelChanged {
+  string provider = 1;
+  string model = 2;
+  optional string reasoning_effort = 3;
+}
+
+message ToolPresentationChanged {
+  ToolPresentation presentation = 1;
+}
+
+message SessionTitleChanged {
+  string title = 1;
+}
+
+message Command {
+  string command_id = 1;
+  string session_id = 2;
+  ControlFence control = 3;
+
+  oneof operation {
+    SendInput send_input = 10;
+    StopActive stop_active = 11;
+    DecideApproval decide_approval = 12;
+    CreateSession create_session = 13;
+    SelectAgentPreset select_agent_preset = 14;
+    SelectModel select_model = 15;
+    ForkSession fork_session = 16;
+    RevokeApprovalRule revoke_approval_rule = 17;
+    SetSessionBudget set_session_budget = 18;
+  }
+}
+
+// Creates a real session and its idle agent (S-mode-select). session_id on the
+// enclosing Command is caller-preallocated: retrying the same command_id after
+// an UNKNOWN outcome re-binds to the same session instead of creating a twin.
+// Omitted agent_preset applies the deployment default.
+// workspace_id binds an existing Host workspace. new_workspace_name is a
+// single folder name (never a path): the Host mkdirs it under that parent
+// workspace, registers the child, and binds the session there. Name without
+// a parent is rejected. Neither field keeps today's Host default cwd.
+message CreateSession {
+  optional string agent_preset = 1;
+  optional string workspace_id = 2;
+  optional string new_workspace_name = 3;
+}
+
+// Recomposes one still-blank session's agent from another preset
+// (S-mode-select). Once any turn has run the owner answers
+// ERROR_CODE_AGENT_PRESET_LOCKED; no control lease is required because a
+// blank session has no in-flight effect to fence.
+message SelectAgentPreset {
+  string agent_preset = 1;
+}
+
+// Selects the provider/model/effort a session's subsequent requests use
+// (S-session-admin). Unlike preset selection this is allowed mid-session —
+// the running step keeps its assembled selection and the NEXT assembled
+// request uses the new triple — so it presents the session control fence
+// exactly like send_input. Validation is adapter-exact: an unregistered
+// provider, an unserved model, or an effort the model does not advertise is
+// rejected with ERROR_CODE_MODEL_UNAVAILABLE before any mutation.
+message SelectModel {
+  string provider = 1;
+  string model = 2;
+  optional string reasoning_effort = 3;
+}
+
+// Forks a new session from a completed-turn prefix of the source
+// (S-session-admin). Lease-free: the source log is never mutated, so there is
+// no in-flight effect to fence. child_session_id is caller-preallocated for
+// the same retry-converges reason as create_session: retrying the same
+// command_id after an UNKNOWN outcome re-binds to the same child instead of
+// forking a twin. at_seq anchors the cut at the first turn/end at or after it;
+// omitted, the source's last completed turn bounds the seed. A source with no
+// completed turn at the anchor is rejected with ERROR_CODE_FORK_UNAVAILABLE.
+message ForkSession {
+  string child_session_id = 1;
+  optional uint64 at_seq = 2;
+}
+
+message SendInput {
+  string text = 1;
+  // Committed upload ids this message attaches (S-blob). Unknown, uncommitted,
+  // or non-image ids fail admission with ERROR_CODE_ATTACHMENT_UNAVAILABLE.
+  repeated string attachment_ids = 2;
+}
+
+message StopActive {
+  uint64 expected_activity_revision = 1;
+}
+
+message DecideApproval {
+  string approval_id = 1;
+  string revision = 2;
+  ApprovalDecision decision = 3;
+}
+
+// Revokes one active auto-grant rule (S-policy). Same trust domain as the
+// decisions that create rules: requires the approval capability.
+message RevokeApprovalRule {
+  string rule_id = 1;
+}
+
+// Sets the session's token budget ceiling (S-policy); send_input admission
+// refuses with ERROR_CODE_BUDGET_EXHAUSTED once cumulative usage reaches it.
+// Session administration: requires the session-control capability.
+message SetSessionBudget {
+  uint64 max_total_tokens = 1;
+}
+
+message ControlFence {
+  string epoch = 1;
+  string token = 2;
+}
+
+message ControlRequest {
+  string request_id = 1;
+  string session_id = 2;
+
+  oneof operation {
+    AcquireControl acquire = 10;
+    RenewControl renew = 11;
+    ReleaseControl release = 12;
+  }
+}
+
+message AcquireControl {}
+
+message RenewControl {
+  ControlFence control = 1;
+}
+
+message ReleaseControl {
+  ControlFence control = 1;
+}
+
+enum ControlOutcome {
+  CONTROL_OUTCOME_UNSPECIFIED = 0;
+  CONTROL_OUTCOME_ACQUIRED = 1;
+  CONTROL_OUTCOME_RENEWED = 2;
+  CONTROL_OUTCOME_RELEASED = 3;
+  CONTROL_OUTCOME_REJECTED = 4;
+}
+
+message ControlResult {
+  string request_id = 1;
+  string session_id = 2;
+  ControlOutcome outcome = 3;
+  ControlFence control = 4;
+  uint64 expires_at_ms = 5;
+  ErrorCode error_code = 6;
+  string detail = 7;
+}
+
+enum CommandOutcome {
+  COMMAND_OUTCOME_UNSPECIFIED = 0;
+  COMMAND_OUTCOME_RECEIVED = 1;
+  COMMAND_OUTCOME_COMMITTED = 2;
+  COMMAND_OUTCOME_REJECTED = 3;
+  COMMAND_OUTCOME_UNKNOWN = 4;
+}
+
+message CommandResult {
+  string command_id = 1;
+  CommandOutcome outcome = 2;
+  bool replayed = 3;
+  ErrorCode error_code = 4;
+  string detail = 5;
+}
+
+enum StopOutcome {
+  STOP_OUTCOME_UNSPECIFIED = 0;
+  STOP_OUTCOME_REQUESTED = 1;
+  STOP_OUTCOME_STOPPED = 2;
+  STOP_OUTCOME_REJECTED = 3;
+  STOP_OUTCOME_UNKNOWN = 4;
+}
+
+message StopResult {
+  string command_id = 1;
+  string session_id = 2;
+  uint64 expected_activity_revision = 3;
+  StopOutcome outcome = 4;
+  bool replayed = 5;
+  bool current_running = 6;
+  bool current_running_known = 7;
+  ErrorCode error_code = 8;
+  string detail = 9;
+}
+
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INVALID_REQUEST = 1;
+  ERROR_CODE_INCOMPATIBLE_VERSION = 2;
+  ERROR_CODE_SNAPSHOT_REQUIRED = 3;
+  ERROR_CODE_COMMAND_ID_REUSED = 4;
+  ERROR_CODE_SESSION_NOT_FOUND = 5;
+  ERROR_CODE_EFFECTFUL_COMMANDS_DISABLED = 6;
+  ERROR_CODE_AUTHORIZATION_DENIED = 7;
+  ERROR_CODE_CONTROL_HELD_BY_OTHER = 8;
+  ERROR_CODE_CONTROL_UNHELD = 9;
+  ERROR_CODE_CONTROL_EXPIRED = 10;
+  ERROR_CODE_CONTROL_STALE_FENCE = 11;
+  ERROR_CODE_COMMAND_OUTCOME_UNKNOWN = 12;
+  ERROR_CODE_COMMAND_UNAVAILABLE = 13;
+  ERROR_CODE_CONTROL_UNAVAILABLE = 14;
+  ERROR_CODE_ACTIVITY_REVISION_STALE = 15;
+  ERROR_CODE_STOP_SETTLEMENT_UNKNOWN = 16;
+  ERROR_CODE_APPROVAL_REVISION_STALE = 17;
+  ERROR_CODE_APPROVAL_NOT_PENDING = 18;
+  ERROR_CODE_APPROVAL_OUTCOME_NOT_ALLOWED = 19;
+  ERROR_CODE_APPROVAL_SETTLEMENT_UNKNOWN = 20;
+  // The named preset is not in the deployment roster (or was removed since hello).
+  ERROR_CODE_AGENT_PRESET_NOT_FOUND = 21;
+  // The session already ran a turn; its preset is fixed for its lifetime.
+  ERROR_CODE_AGENT_PRESET_LOCKED = 22;
+  // The named preset exists but its composition cannot mount a session.
+  ERROR_CODE_AGENT_PRESET_INVALID = 23;
+  // The provider/model/effort triple cannot serve this session: unregistered
+  // route, unserved model, unadvertised effort, or an image-bearing session
+  // handed a text-only model (S-session-admin).
+  ERROR_CODE_MODEL_UNAVAILABLE = 24;
+  // The preallocated session id (create target or fork child) is already
+  // bound to different semantics (S-mode-select / S-session-admin).
+  ERROR_CODE_SESSION_CONFLICT = 25;
+  // The fork source has no completed turn at the requested anchor
+  // (S-session-admin).
+  ERROR_CODE_FORK_UNAVAILABLE = 26;
+  // A send_input attachment id is unknown, not yet committed by this device,
+  // or not an accepted image (S-blob).
+  ERROR_CODE_ATTACHMENT_UNAVAILABLE = 27;
+  // The session's token budget is exhausted; send_input admission refuses
+  // until the ceiling is raised (S-policy).
+  ERROR_CODE_BUDGET_EXHAUSTED = 28;
+  // create_session named a workspace_id that is not in the Host registry.
+  ERROR_CODE_WORKSPACE_NOT_FOUND = 29;
+  // new_workspace_name is missing its parent, empty, a path, or reserved.
+  ERROR_CODE_WORKSPACE_INVALID_NAME = 30;
+  // Host mkdir or workspace.register of the child folder failed.
+  ERROR_CODE_WORKSPACE_CREATE_FAILED = 31;
+}
+
+message ProtocolError {
+  ErrorCode code = 1;
+  string detail = 2;
+  bool retryable = 3;
+}
+
+// --- Blob logical channel (S-blob, ADR-005) --------------------------------
+// References cross inside ordinary frames; bytes travel as offset-addressed
+// chunks on the same authenticated carrier, which control frames may preempt
+// between chunks. Every failure is scoped to its transfer or fetch — nothing
+// here may tear the carrier down.
+
+// Upload open: the sender declares the content facts it will be held to.
+// transfer_id is client-minted ([0-9a-f]{16,64}); re-beginning the same id
+// after a reconnect resumes at the Host's staged cursor.
+message BlobTransferBegin {
+  string transfer_id = 1;
+  // Lowercase hex SHA-256 of the full content; verified before commit.
+  string sha256_hex = 2;
+  uint64 total_bytes = 3;
+  // Sender-reported media type; the Host sniffs magic bytes before trusting.
+  optional string media_type = 4;
+}
+
+// One upload chunk; data is 1..49152 bytes and must continue the staged cursor.
+message BlobTransferChunk {
+  string transfer_id = 1;
+  uint64 offset = 2;
+  bytes data = 3;
+}
+
+enum BlobTransferAction {
+  BLOB_TRANSFER_ACTION_UNSPECIFIED = 0;
+  // Verify (size, then digest) and commit; the result carries the blob id.
+  BLOB_TRANSFER_ACTION_COMPLETE = 1;
+  // Discard staged bytes; the id may be reused afterwards.
+  BLOB_TRANSFER_ACTION_ABORT = 2;
+  // Ask for the current cursor without mutating anything.
+  BLOB_TRANSFER_ACTION_STATUS = 3;
+}
+
+message BlobTransferControl {
+  string transfer_id = 1;
+  BlobTransferAction action = 2;
+}
+
+enum BlobTransferErrorCode {
+  BLOB_TRANSFER_ERROR_UNSPECIFIED = 0;
+  BLOB_TRANSFER_ERROR_INVALID_DECLARATION = 1;
+  BLOB_TRANSFER_ERROR_DECLARATION_CONFLICT = 2;
+  BLOB_TRANSFER_ERROR_UNKNOWN_TRANSFER = 3;
+  BLOB_TRANSFER_ERROR_TOO_MANY_TRANSFERS = 4;
+  BLOB_TRANSFER_ERROR_CHUNK_TOO_LARGE = 5;
+  // The chunk did not continue the staged cursor; resume_offset names it.
+  BLOB_TRANSFER_ERROR_OFFSET_MISMATCH = 6;
+  BLOB_TRANSFER_ERROR_SIZE_MISMATCH = 7;
+  BLOB_TRANSFER_ERROR_DIGEST_MISMATCH = 8;
+  BLOB_TRANSFER_ERROR_COMMIT_REJECTED = 9;
+  // Uploads require the session-input capability; absence fails closed here.
+  BLOB_TRANSFER_ERROR_UNAUTHORIZED = 10;
+}
+
+message BlobTransferError {
+  BlobTransferErrorCode code = 1;
+  string detail = 2;
+  // Contiguous staged cursor; the honest resume point, never a guess.
+  optional uint64 resume_offset = 3;
+}
+
+message BlobTransferResult {
+  string transfer_id = 1;
+  // Contiguous staged cursor after this frame was applied.
+  uint64 received_bytes = 2;
+  // Committed content address (the attachment id) once COMPLETE verified.
+  optional string blob_id = 3;
+  optional BlobTransferError error = 4;
+}
+
+// Download open: prove the source ACL once and pin the content facts.
+// The session whose durable log references the source is the proof domain;
+// artifact ids resolve to paths inside the Host registry — the client never
+// supplies a path.
+message BlobFetchOpen {
+  oneof source {
+    // Content-addressed attachment reference (`sha256:<hex>`).
+    string attachment_id = 1;
+    // Host-registered artifact id (S-artifacts).
+    string artifact_id = 2;
+  }
+  string session_id = 3;
+}
+
+message BlobFetchRequest {
+  // Client-minted fetch id ([0-9a-f]{16,64}); one open per id, then chunks.
+  string fetch_id = 1;
+
+  oneof action {
+    BlobFetchOpen open = 2;
+    // Request the chunk starting at this offset (resume after reconnect).
+    uint64 chunk_offset = 3;
+  }
+}
+
+enum BlobFetchErrorCode {
+  BLOB_FETCH_ERROR_UNSPECIFIED = 0;
+  BLOB_FETCH_ERROR_INVALID_REQUEST = 1;
+  BLOB_FETCH_ERROR_CONFLICT = 2;
+  BLOB_FETCH_ERROR_TOO_MANY_FETCHES = 3;
+  BLOB_FETCH_ERROR_UNKNOWN_FETCH = 4;
+  // The named session's log does not reference this source.
+  BLOB_FETCH_ERROR_UNAUTHORIZED = 5;
+  BLOB_FETCH_ERROR_CONTENT_TOO_LARGE = 6;
+  BLOB_FETCH_ERROR_OFFSET_OUT_OF_RANGE = 7;
+  // The artifact shrank after open; re-open to re-pin the facts.
+  BLOB_FETCH_ERROR_SOURCE_CHANGED = 8;
+}
+
+message BlobFetchError {
+  BlobFetchErrorCode code = 1;
+  string detail = 2;
+}
+
+// Facts pinned at open; the client cross-checks them against the declarations
+// its projection already carried.
+message BlobFetchOpened {
+  uint64 total_bytes = 1;
+  // Present for content-addressed sources (attachments: the id's own digest).
+  optional string sha256_hex = 2;
+  optional string media_type = 3;
+}
+
+message BlobFetchChunk {
+  uint64 offset = 1;
+  bytes data = 2;
+  // True when this chunk reaches the end of the pinned content.
+  bool complete = 3;
+}
+
+message BlobFetchResult {
+  string fetch_id = 1;
+
+  oneof outcome {
+    BlobFetchOpened opened = 2;
+    BlobFetchChunk chunk = 3;
+    BlobFetchError error = 4;
+  }
+}
+
+// --- Host-process supervisor channel (S-supervisor, ADR-007) ---------------
+// A separate service on the supervisor's own port, served by the tiny resident
+// process that owns the dsh child's lifecycle. The Noise handshake reuses the
+// exact secure framing above against the same device-authorization store
+// (re-read on every handshake); pairing never happens on this service.
+service SupervisorTransport {
+  rpc SecureConnect(stream SecureClientFrame) returns (stream SecureServerFrame);
+  rpc Supervise(stream SupervisorClientFrame) returns (stream SupervisorServerFrame);
+}
+
+message SupervisorClientFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    SupervisorHello hello = 10;
+    SupervisorCommand command = 11;
+    Heartbeat heartbeat = 12;
+  }
+}
+
+message SupervisorServerFrame {
+  string frame_id = 1;
+
+  oneof payload {
+    SupervisorHelloAck hello_ack = 10;
+    // Pushed once after hello and on every state change; there is no status
+    // query verb because the push stream is always current.
+    SupervisorStatus status = 11;
+    SupervisorCommandResult command_result = 12;
+    HeartbeatAck heartbeat_ack = 13;
+    ProtocolError error = 14;
+  }
+}
+
+message SupervisorHello {
+  uint32 protocol_version = 1;
+  string client_name = 2;
+}
+
+message SupervisorHelloAck {
+  string host_instance_id = 1;
+  // Exact granted mask for this authenticated identity, as in ServerHello.
+  // Status pushes require the observe bit; the verbs require the supervise bit.
+  uint64 granted_capabilities = 2;
+}
+
+// The supervisor's lifecycle snapshot. Absent fields stay absent — a down
+// child has no pid, and no schedule is never a zero timestamp.
+message SupervisorStatus {
+  // "down" | "running" | "stopping" | "backoff".
+  string state = 1;
+  // Only while down: "never-started" | "operator" | "crash-loop".
+  optional string down_reason = 2;
+  uint32 consecutive_crashes = 3;
+  // Only while backoff holds: when the next respawn is due (epoch ms).
+  optional uint64 next_restart_at_ms = 4;
+  // Only while running: the supervised child's pid and start time (epoch ms).
+  optional uint32 child_pid = 5;
+  optional uint64 child_since_ms = 6;
+  // The most recent child exit's facts; both absent when none was observed.
+  optional int32 last_exit_code = 7;
+  optional string last_exit_signal = 8;
+}
+
+message SupervisorStart {}
+
+message SupervisorStop {}
+
+message SupervisorRestart {}
+
+message SupervisorCommand {
+  string command_id = 1;
+
+  oneof operation {
+    SupervisorStart start = 10;
+    SupervisorStop stop = 11;
+    SupervisorRestart restart = 12;
+  }
+}
+
+message SupervisorCommandResult {
+  string command_id = 1;
+  CommandOutcome outcome = 2;
+  ErrorCode error_code = 3;
+  string detail = 4;
+}

@@ -1,17 +1,23 @@
-# DSH Remote Host: insert after the stock web layer. LAN stays off until
-# Settings → Mobile access turns it on. A missing Windows security addon
-# must not take down `dsh web`.
+# One bundle. Cordis rows keep inject order. Not file:// overlay.
+# Prompt/stop admissions first so host-remote-command can consume them.
+# Settings last so /remote-admin sees remotePairingAdmin.
+# This package does not attach a fake approval list.
+
 - insert:
+    - id: remote-admissions
+      name: '@w2112515/dsh-remote-host/admissions'
     - id: host-remote-control
       name: '@w2112515/dsh-remote-host/control'
-
     - id: host-remote-command
       name: '@w2112515/dsh-remote-host/command'
-
     - id: host-remote
-      name: '@w2112515/dsh-remote-host'
+      name: '@w2112515/dsh-remote-host/remote'
       config:
-        securityStorePath: !!js dshHomePath('remote-host-security.bin')
-
+        port: 50051
+        securityAddonPath: !!js process.env.DSH_REMOTE_SECURITY_ADDON
+        securityStorePath: !!js process.env.DSH_REMOTE_SECURITY_STORE
+        bindAddress: !!js process.env.DSH_REMOTE_BIND_ADDRESS
+        advertiseAddress: !!js process.env.DSH_REMOTE_ADVERTISE_ADDRESS
+        lanDiscovery: false
     - id: ui-settings-remote
       name: '@w2112515/dsh-remote-host/settings'

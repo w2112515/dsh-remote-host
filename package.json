@@ -1,68 +1,14 @@
 {
   "name": "@w2112515/dsh-remote-host",
-  "version": "0.1.0",
-  "description": "Pair an Android phone to a DeepSeek Harness Host over LAN: Noise-authenticated remote, Settings → Mobile access, and workspace-bound session create.",
-  "keywords": [
-    "dsh",
-    "dsh-plugin",
-    "deepseek-harness",
-    "deepseek",
-    "android",
-    "remote",
-    "lan",
-    "mobile",
-    "pairing"
-  ],
+  "version": "0.2.0",
+  "description": "One DSH Remote Host bundle: Noise projection, commands, prompt/stop admissions, pairing settings. Linux and Windows.",
+  "type": "module",
+  "license": "MIT",
   "homepage": "https://github.com/w2112515/dsh-remote-host#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/w2112515/dsh-remote-host.git"
   },
-  "bugs": {
-    "url": "https://github.com/w2112515/dsh-remote-host/issues"
-  },
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
-  "type": "module",
-  "engines": {
-    "node": "^22.19.0 || >=24.0.0"
-  },
-  "packageManager": "pnpm@11.7.0",
-  "main": "lib/index.mjs",
-  "types": "lib/index.d.mts",
-  "exports": {
-    ".": {
-      "types": "./lib/index.d.mts",
-      "default": "./lib/index.mjs"
-    },
-    "./command": {
-      "types": "./lib/command.d.mts",
-      "default": "./lib/command.mjs"
-    },
-    "./control": {
-      "types": "./lib/control.d.mts",
-      "default": "./lib/control.mjs"
-    },
-    "./settings": {
-      "types": "./lib/settings.d.mts",
-      "default": "./lib/settings.mjs"
-    },
-    "./client": "./lib/client.js",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "lib/**",
-    "protocol/**",
-    "native/**",
-    "cordis.patch.yml",
-    "README.md",
-    "README.zh-CN.md",
-    "llms.txt",
-    "docs/phone/**",
-    "LICENSE"
-  ],
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -77,86 +23,35 @@
       ]
     }
   },
+  "exports": {
+    "./control": "./runtime/control/index.js",
+    "./command": "./runtime/command/index.js",
+    "./remote": "./runtime/remote/index.js",
+    "./admissions": "./runtime/admissions/index.js",
+    "./settings": "./runtime/settings/index.js",
+    "./client": "./runtime/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "llms.txt",
+    "scripts/invite.mjs",
+    "runtime"
+  ],
   "scripts": {
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run build"
+    "pack-runtime": "node scripts/pack-runtime.mjs",
+    "invite": "node scripts/invite.mjs"
   },
   "dependencies": {
     "@grpc/grpc-js": "1.14.4",
     "@grpc/proto-loader": "0.8.1",
     "@homebridge/ciao": "1.3.10",
-    "qrcode": "1.5.4",
+    "qrcode": "^1.5.4",
     "zod": "^4.4.3"
   },
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-brand": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-connection": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-host-apiproxy": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-invariants": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-storage-domain": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-user-approval": "^0.1.0-rc.6",
-    "@deepseek-ai/schemastery": "^3.18.1",
-    "react": "^18.2.0"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/dsh-attachment": { "optional": true },
-    "@deepseek-ai/dsh-brand": { "optional": true },
-    "@deepseek-ai/dsh-client-connection": { "optional": true },
-    "@deepseek-ai/dsh-client-locale": { "optional": true },
-    "@deepseek-ai/dsh-client-runtime": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-settings": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
-    "@deepseek-ai/dsh-home-paths": { "optional": true },
-    "@deepseek-ai/dsh-host-apiproxy": { "optional": true },
-    "@deepseek-ai/dsh-invariants": { "optional": true },
-    "@deepseek-ai/dsh-session": { "optional": true },
-    "@deepseek-ai/dsh-session-projection": { "optional": true },
-    "@deepseek-ai/dsh-settings": { "optional": true },
-    "@deepseek-ai/dsh-storage-domain": { "optional": true },
-    "@deepseek-ai/dsh-user-approval": { "optional": true },
-    "@deepseek-ai/schemastery": { "optional": true },
-    "react": { "optional": true }
-  },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-brand": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-connection": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-host-apiproxy": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-invariants": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-session-projection": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-storage-domain": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-user-approval": "^0.1.0-rc.6",
-    "@deepseek-ai/schemastery": "^3.18.1",
-    "@types/node": "^22.20.0",
-    "@types/qrcode": "1.5.6",
-    "@types/react": "~18.3.1",
-    "lightningcss": "^1.32.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "tsdown": "^0.22.2",
-    "typescript": "^5.9.2"
+    "esbuild": "^0.28.2"
   }
 }
