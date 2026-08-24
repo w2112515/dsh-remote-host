@@ -1,70 +1,48 @@
 # @w2112515/dsh-remote-host
 
-One DSH bundle for Remote. Install it once. Cordis still loads five rows from this package because they inject different Host services.
+One DSH bundle for Remote. Pair an Android phone to DeepSeek Harness over LAN or a public Host IPv4.
 
-Android is a **separate signed APK**: [dsh-remote-android](https://github.com/w2112515/dsh-remote-android/releases).
+Android is a **separate signed APK** (use **0.2.0** with this Host **0.2.2**): [dsh-remote-android](https://github.com/w2112515/dsh-remote-android/releases).
 
-## What you get
+The PC already runs official `dsh` web on loopback. This plugin adds the phone path. Do not put DSH web on a public hostname.
 
-- Noise gRPC projection (port from env, default 50051)
-- Durable command journal and control leases
-- Prompt and Stop admissions when stock `dsh` has none
-- Host-local pairing (`Settings → Mobile access`, or `npm run invite`)
-- Linux x64 iroh sidecar in `native/linux-x64/` (NAT). This release has no Windows iroh binary.
-
-**Authorization:** the phone 策略 tab shows Host session policy. This bundle does **not** claim per-tap phone approval on npm `dsh` 0.1.1-rc.2. Writes follow Host policy.
-
-**Computer vs phone:** the PC already runs official `dsh` web on loopback. This plugin adds the phone path. Do not put DSH web on a public hostname.
+**Authorization:** the phone 策略 tab shows Host session policy. This bundle does **not** claim per-tap phone approval on npm `dsh` 0.1.1-rc.2.
 
 ## Install (Linux x64)
 
-Needs official `dsh` 0.1.1-rc.2+ and Node. `npm` is enough. `dsh plugin add` is a pnpm footnote at the bottom.
+Needs official `dsh` 0.1.1-rc.2+ and Node.
 
 ```sh
-git clone --branch v0.2.1 https://github.com/w2112515/dsh-remote-host.git
+git clone --branch v0.2.2 https://github.com/w2112515/dsh-remote-host.git
 cd dsh-remote-host
-npm install --omit=dev
-sh scripts/link-dsh-deps.sh    # nested @deepseek-ai + this package into $DSH_HOME/profiles/web
-. scripts/env.sh               # from this directory
+sh scripts/setup.sh --bind YOUR_PUBLIC_IP    # same LAN only: omit --bind
+sh scripts/start.sh
+node scripts/invite.mjs
 ```
 
-Public unicast IPv4 Host (never `0.0.0.0` on a home machine):
+`setup` installs deps, links this package into the DSH profile, writes `$DSH_HOME/remote-host.env`, and checks dump-config. `start` boots loopback web (`127.0.0.1:3180`) plus the projection port (default 50051). `invite` prints a `dsh-remote://` URI and a terminal QR; type the eight-digit code to confirm.
 
-```sh
-export DSH_REMOTE_BIND_ADDRESS=YOUR_PUBLIC_IP
-export DSH_REMOTE_ADVERTISE_ADDRESS=YOUR_PUBLIC_IP
-```
+Sideload the APK, scan or paste the URI.
 
-Check the composition, then boot web on loopback:
+Never pass `--bind 0.0.0.0`. Home machines bind a unicast IPv4 or stay on LAN.
 
-```sh
-dsh --profile web --patch "$PWD/cordis.patch.yml" --dump-config
-dsh --profile web --patch "$PWD/cordis.patch.yml" --host 127.0.0.1 --port 3180 --no-open
-```
+Windows: `.\scripts\setup.ps1 --bind YOUR_PUBLIC_IP` then `.\scripts\start.ps1`. This release has no Windows iroh binary; LAN or a public IPv4 bind still works.
 
-Dump-config must list `@w2112515/dsh-remote-host/admissions`, `control`, `command`, `remote`, and `settings`. It must not list Remote `file://` rows.
+## Pairing notes
 
-`scripts/env.sh` must be sourced from the package root (`. scripts/env.sh`). It points `DSH_REMOTE_SECURITY_ADDON` and `DSH_REMOTE_IROH_BIN` at `native/linux-x64/` when those files exist. The wrapping-key store defaults to `$DSH_HOME/remote-host-security.bin`.
+Run `invite` **on the Host** (SSH into the machine is enough). The phone talks to the advertised IPv4 after pairing; it does not keep SSH open.
 
-Windows: `.\scripts\link-dsh-deps.ps1` then `. .\scripts\env.ps1`, same `--patch` boot. LAN or a public IPv4 bind works; iroh NAT is Linux-only in this release.
-
-## Pairing
-
-The pairing admin is Host-local loopback web. Nearby discovery is **off** in this bundle (`lanDiscovery: false`) and is LAN-only even when turned on.
-
-On the Host computer:
-
-1. Open `http://127.0.0.1:3180` → **Settings → Mobile access**, or run `node scripts/invite.mjs`.
-2. Sideload the [signed APK](https://github.com/w2112515/dsh-remote-android/releases).
-3. Scan or paste the `dsh-remote://` URI. Confirm the eight-digit code on the computer.
-
-From another machine to a public-IP Host, tunnel loopback web, then mint the same invitation:
+Want the browser Settings page from another computer?
 
 ```sh
 ssh -L 3180:127.0.0.1:3180 HOST
 ```
 
-Open `http://127.0.0.1:3180` on that client, or `node scripts/invite.mjs` against the tunnel. The invitation URI already carries the advertised Host IPv4 and port. The phone talks to that address after pairing; it does not keep the SSH tunnel.
+Then `http://127.0.0.1:3180` → **Settings → Mobile access**. Nearby discovery is off (`lanDiscovery: false`) and is LAN-only even when enabled.
+
+## Backup
+
+Copy `$DSH_HOME/remote-host-security.bin` (created on first start). Losing it means every phone must pair again.
 
 ## Optional: `dsh plugin add`
 
@@ -72,10 +50,13 @@ Only if `pnpm` is on PATH:
 
 ```sh
 dsh plugin --profile web add github:w2112515/dsh-remote-host
+# or, after npm publish: dsh plugin --profile web add @w2112515/dsh-remote-host
 ```
 
-Then still run `scripts/env.sh` (or set the same variables) before boot. Without pnpm, use the clone + `--patch` path above.
+Still run `sh scripts/setup.sh --skip-npm --bind YOUR_PUBLIC_IP` so natives and the env file exist, then `sh scripts/start.sh`.
 
-## Not in 0.2.1
+VPS: see `contrib/dsh-remote-host.service`.
 
-Firebase push. Cellular-only acceptance. Per-tap phone approval on stock 0.1.1-rc.2. Marketplace pack. npm registry. macOS natives. Windows iroh. Public DSH web.
+## Not in 0.2.2
+
+Firebase push. Cellular-only acceptance. Per-tap phone approval on stock 0.1.1-rc.2. Marketplace pack. macOS natives. Windows iroh. Public DSH web. New Android APK (0.2.0 is current).

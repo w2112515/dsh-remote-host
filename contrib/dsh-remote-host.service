@@ -1,0 +1,23 @@
+# Example unit. Copy, edit paths/user, then:
+#   systemctl --user enable --now dsh-remote-host.service
+# Do not bind DSH web on a public address. nginx/other TLS stays on 443.
+#
+# Identity backup: copy $DSH_HOME/remote-host-security.bin.
+
+[Unit]
+Description=DSH Remote Host (loopback web + projection)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# User=dsh
+Environment=DSH_HOME=%h/.dsh
+EnvironmentFile=-%h/.dsh/remote-host.env
+WorkingDirectory=/opt/dsh-remote-host
+ExecStart=/bin/sh /opt/dsh-remote-host/scripts/start.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

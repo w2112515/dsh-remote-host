@@ -1,6 +1,6 @@
 {
   "name": "@w2112515/dsh-remote-host",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "One DSH Remote Host bundle: Noise projection, commands, prompt/stop admissions, pairing settings. Linux and Windows.",
   "type": "module",
   "license": "MIT",
@@ -32,12 +32,21 @@
     "./client": "./runtime/client.js",
     "./package.json": "./package.json"
   },
+  "bin": {
+    "dsh-remote-host-setup": "./scripts/setup.mjs"
+  },
   "files": [
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
     "llms.txt",
+    "contrib",
     "scripts/invite.mjs",
+    "scripts/setup.mjs",
+    "scripts/setup.sh",
+    "scripts/setup.ps1",
+    "scripts/start.sh",
+    "scripts/start.ps1",
     "scripts/env.sh",
     "scripts/env.ps1",
     "scripts/link-dsh-deps.sh",
@@ -47,7 +56,11 @@
   ],
   "scripts": {
     "pack-runtime": "node scripts/pack-runtime.mjs",
+    "setup": "node scripts/setup.mjs",
     "invite": "node scripts/invite.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@grpc/grpc-js": "1.14.4",
