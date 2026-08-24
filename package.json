@@ -1,6 +1,6 @@
 {
   "name": "@w2112515/dsh-remote-host",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "One DSH Remote Host bundle: Noise projection, commands, prompt/stop admissions, pairing settings. Linux and Windows.",
   "type": "module",
   "license": "MIT",
@@ -38,7 +38,12 @@
     "README.zh-CN.md",
     "llms.txt",
     "scripts/invite.mjs",
-    "runtime"
+    "scripts/env.sh",
+    "scripts/env.ps1",
+    "scripts/link-dsh-deps.sh",
+    "scripts/link-dsh-deps.ps1",
+    "runtime",
+    "native"
   ],
   "scripts": {
     "pack-runtime": "node scripts/pack-runtime.mjs",

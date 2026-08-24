@@ -1,6 +1,6 @@
 {
   "name": "@w2112515/dsh-remote-security-core-win32-x64",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Windows x64 Node-API prebuild for the DSH Remote Noise and DPAPI security owner",
   "type": "module",
   "main": "./index.mjs",

@@ -860,7 +860,7 @@ import {
   fingerprintRemoteSendInput,
   fingerprintRemoteSetSessionBudget,
   fingerprintRemoteStop
-} from "@dsh-remote/host/control";
+} from "@w2112515/dsh-remote-host/control";
 function terminalFromRow(row, replayed) {
   return row.phase === "committed" ? Object.freeze({ outcome: "committed", commandId: row.commandId, replayed }) : Object.freeze({
     outcome: "rejected",

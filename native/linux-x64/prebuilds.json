@@ -1,0 +1,13 @@
+{
+  "platform": "linux-x64",
+  "artifacts": [
+    {
+      "path": "dsh_remote_security_core.node",
+      "sha256": "8a34177bc93a4af51371bcaf42608179478bb8e0e0d54468b18c174741e68ef6"
+    },
+    {
+      "path": "dsh-remote-iroh",
+      "sha256": "0244fe3c758e5a2c32a7b1b8d82e52f0e77076c4aef73c981bdfde51b6970ad8"
+    }
+  ]
+}

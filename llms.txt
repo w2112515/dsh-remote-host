@@ -4,8 +4,11 @@
 
 - Repo: https://github.com/w2112515/dsh-remote-host
 - Android APK: https://github.com/w2112515/dsh-remote-android/releases
-- Install: `dsh plugin --profile web add github:w2112515/dsh-remote-host`
-- Then Settings → Mobile access on loopback web, or `node scripts/invite.mjs`
-- Package id: `@w2112515/dsh-remote-host` 0.2.0
+- Package id: `@w2112515/dsh-remote-host` 0.2.1
+- First install path (Linux x64): clone v0.2.1 → `npm install --omit=dev` → `sh scripts/link-dsh-deps.sh` (nested @deepseek-ai + symlink this package into `$DSH_HOME/profiles/web`) → `. scripts/env.sh` from the package root → `dsh --profile web --patch $PWD/cordis.patch.yml`
+- Pairing admin is loopback web (`127.0.0.1:3180`). Public-IP Host: `ssh -L 3180:127.0.0.1:3180 HOST` then Settings → Mobile access or `node scripts/invite.mjs`
+- Nearby discovery is off (`lanDiscovery: false`). Not the public-IP pairing step.
+- `dsh plugin add github:w2112515/dsh-remote-host` needs pnpm; it is optional
 - Stock npm `dsh` 0.1.1-rc.2: send/stop/policy yes; per-tap phone approval no
-- Not a marketplace pack. Android is not a DSH plugin.
+- Linux natives in `native/linux-x64/` (security .node + iroh). No Windows iroh in this release. No macOS natives.
+- Not a marketplace pack. Android is not a DSH plugin. Do not put DSH web on a public hostname.

@@ -17797,7 +17797,7 @@ import { randomUUID as randomUUID3, timingSafeEqual as timingSafeEqual3 } from "
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 import grpc2 from "@grpc/grpc-js";
 import protoLoader3 from "@grpc/proto-loader";
-import { sanitizeRemoteWorkspaceName } from "@dsh-remote/host/command";
+import { sanitizeRemoteWorkspaceName } from "@w2112515/dsh-remote-host/command";
 
 // ../host-workspace/deepseek-harness/packages/host/remote/src/cursor.ts
 var ProjectionGenerationCapacityError = class extends Error {

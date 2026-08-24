@@ -13,7 +13,8 @@
     - id: host-remote
       name: '@w2112515/dsh-remote-host/remote'
       config:
-        port: 50051
+        # No `:` inside this expression — YAML would parse a ternary as a mapping.
+        port: !!js Number(process.env.DSH_REMOTE_PORT || 50051)
         securityAddonPath: !!js process.env.DSH_REMOTE_SECURITY_ADDON
         securityStorePath: !!js process.env.DSH_REMOTE_SECURITY_STORE
         bindAddress: !!js process.env.DSH_REMOTE_BIND_ADDRESS

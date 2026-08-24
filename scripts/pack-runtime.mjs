@@ -14,8 +14,8 @@ const harness = join(repo, 'packages', 'host')
 const out = join(root, 'runtime')
 
 const alias = {
-  '@deepseek-ai/dsh-host-remote-control': '@dsh-remote/host/control',
-  '@deepseek-ai/dsh-host-remote-command': '@dsh-remote/host/command',
+  '@deepseek-ai/dsh-host-remote-control': '@w2112515/dsh-remote-host/control',
+  '@deepseek-ai/dsh-host-remote-command': '@w2112515/dsh-remote-host/command',
 }
 
 const external = [
@@ -30,6 +30,10 @@ const external = [
   '@deepseek-ai/dsh-llm',
   '@deepseek-ai/dsh-api-remotes',
   '@deepseek-ai/dsh-client-connection',
+  '@w2112515/dsh-remote-host/control',
+  '@w2112515/dsh-remote-host/command',
+  '@w2112515/dsh-remote-host/remote',
+  '@w2112515/dsh-remote-host/admissions',
   '@dsh-remote/host/control',
   '@dsh-remote/host/command',
   '@dsh-remote/host/remote',
